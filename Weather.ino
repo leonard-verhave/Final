@@ -1,7 +1,7 @@
 #include <DHT.h>
 
 
-#define DHTPIN 4       // The DHT11 data pin is connected to GPIO 4
+#define DHTPIN 4  // The DHT11 data pin is connected to GPIO 4
 #define DHTTYPE DHT11  // Specifying the sensor type as DHT11
 DHT dht(DHTPIN, DHTTYPE);
 
