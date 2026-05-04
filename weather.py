@@ -2,52 +2,49 @@ import requests
 import serial
 import time
 
-# 1. WeatherOpen API key 
-API_KEY = "" 
-CITY = "Cheyenne"
-SERIAL_PORT = "COM4" 
-BAUD_RATE = 115200
+# API key for OpenWeather and the city where the user is in 
+API_KEY = "88aa92248943c219a2a264a1bd3975d0" 
+CITY = "Cheyenne"                         
+SERIAL_PORT = 'COM4'                         
+BAUD_RATE = 115200                     
 
-# 2. Setup Serial Connection
+# Seriel connection
 try:
-    ser = serial.Serial(SERIAL_PORT, BAUD_RATE, timeout=1)
-    time.sleep(2) 
-    print("Connected to ESP32 on COM4")
+    ser = serial.Serial(SERIAL_PORT, BAUD_RATE, timeout=0.1)
+    time.sleep(2) # Give the ESP32 time to reboot after connecting
+    print(f"Connected to ESP32 on {SERIAL_PORT}")
 except Exception as e:
-    print(f"Error: {e}")
-    print("Make sure the Arduino Serial Monitor is closed!")
+    print(f"Connection Error: {e}")
+    exit()
 
-def get_weather(city, api_key):
-    url = f"http://api.openweathermap.org/data/2.5/weather?q={city}&appid={api_key}&units=imperial"
+def get_weather():
+    #Fetches live temperature data from the OpenWeather API.
+    url = f"http://api.openweathermap.org/data/2.5/weather?q={CITY}&appid={API_KEY}&units=imperial"
     try:
-        response = requests.get(url)
-        return response.json() if response.status_code == 200 else None
+        r = requests.get(url)
+        data = r.json()
+        if data["cod"] == 200:
+            return data["main"]["temp"]
     except:
         return None
 
-# 3. Main Loop
-last_weather_check = 0
-print("Starting Weather and Sensor Sync...")
+# Variable to track the weather last updated
+last_weather_update = 0
 
 while True:
-    # A. Check for Room Temp 
     if ser.in_waiting > 0:
-        raw_line = ser.readline().decode('utf-8', errors='ignore').strip()
-        if "ROOM_TEMP" in raw_line:
-            try:
-                r_temp = raw_line.split(":")[1]
-                print(f"--- Room Temperature: {r_temp}°F ---")
-            except IndexError:
-                pass
+        line = ser.readline().decode('utf-8', errors='ignore').strip()
+        if "Room Temp:" in line:
+            print(line) # Print the breadboard sensor data in the Thonny Shell
 
-    # B. Check Cheyenne Weather (Every 30 seconds)
+    # Fetch and send Cheyenne weather once every 30 seconds
     current_time = time.time()
-    if current_time - last_weather_check > 30:
-        data = get_weather(CITY, API_KEY)
-        if data:
-            c_temp = data['main']['temp']
-            print(f"\n--- Cheyenne Weather: {c_temp}°F ---")
-            ser.write(f"{c_temp}\n".encode()) # This tells the LEDs what to do
-        last_weather_check = current_time
-
+    if current_time - last_weather_update > 30:
+        temp = get_weather()
+        if temp:
+            print(f"Cheyenne Temp: {temp} F") 
+            ser.write(f"{temp}\n".encode())  # Send the number to the ESP32
+            last_weather_update = current_time
+    
+    # Brief pause to prevent the CPU from overworking
     time.sleep(0.1)
